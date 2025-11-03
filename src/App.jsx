@@ -1,9 +1,5 @@
 import { useState } from 'react';
 
-// You can get a simple "sparkle" icon from a React icon library like 'lucide-react'
-// (run `npm install lucide-react`)
-// import { Sparkles } from 'lucide-react';
-
 function App() {
   const [prompt, setPrompt] = useState(''); // The user's text question
   const [image, setImage] = useState(null); // The image file
@@ -35,7 +31,8 @@ function App() {
   const toBase64 = (file) => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result.split(',')[1]); // Get just the base64 part
+    // Remove the data prefix "data:image/jpeg;base64," to get just the base64 part
+    reader.onload = () => resolve(reader.result.split(',')[1]); 
     reader.onerror = (error) => reject(error);
   });
 
@@ -63,34 +60,27 @@ function App() {
         prompt: prompt,
       };
 
-      // 3. Call our backend serverless function (see notes below)
-      // We are "awaiting" the response from our server
-      // const response = await fetch('/api/analyze-outfit', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(dataToSend),
-      // });
+      // 3. Call our backend serverless function
+      const response = await fetch('/api/analyze-outfit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dataToSend),
+      });
 
-      // const aiResponse = await response.json();
+      const aiResponse = await response.json();
 
-      // 4. --- MOCKUP ---
-      // For now, we'll just show a fake AI response.
-      // Remove this `setTimeout` when you build your backend.
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate AI thinking
-      const aiResponse = {
-        analysis: "### Your Outfit Analysis\n\nThis is a great start for a date!\n\n* **Color Palette:** The navy blue jacket and white shirt are a classic combo. The colors work well together.\n* **Ornaments:** A simple silver watch would be a perfect accessory here. \n* **Suggestions:** The jeans are a good choice, but make sure your shoes are clean! A pair of brown leather loafers or clean white sneakers would complete this look."
-      };
-      // --- END MOCKUP ---
-
-      if (!aiResponse.analysis) {
-        throw new Error('Failed to get a response from the AI.');
+      // 4. Check for errors from the backend
+      if (!response.ok) {
+        throw new Error(aiResponse.error || 'Failed to get a response from the AI.');
       }
 
+      // 5. Set the successful result
       setResult(aiResponse.analysis);
 
     } catch (error) {
       console.error("Error:", error);
-      setResult(`Error: ${error.message}`);
+      // Display the error message in the result box
+      setResult(`Error: ${error.message}`); 
     } finally {
       setLoading(false);
     }
@@ -105,13 +95,13 @@ function App() {
             AI Fashion Advisor
           </h1>
           <p className="text-gray-400 mt-2">
-            Upload your 'fit. Get it roasted (or rated).
+            Upload your 'fit. Get an instant analysis.
           </p>
         </div>
 
         {/* --- UPLOAD AREA & PREVIEW --- */}
         <div className="bg-gray-800 p-6 rounded-xl shadow-lg mb-6">
-          <h2 className="text-lg font-semibold mb-3">Upload Your 'Fit</h2>
+          <h2 className="text-lg font-semibold mb-3">1. Upload Your 'Fit</h2>
           <div
             className={`flex justify-center items-center w-full h-64 border-2 border-dashed rounded-lg cursor-pointer
               ${imagePreview ? 'border-purple-400' : 'border-gray-600 hover:border-gray-500'}
@@ -140,7 +130,7 @@ function App() {
           {/* --- TEXT PROMPT --- */}
           <div className="bg-gray-800 p-6 rounded-xl shadow-lg mb-6">
             <label htmlFor="prompt" className="text-lg font-semibold mb-3 block">
-              Ask Your Question
+              2. Ask Your Question
             </label>
             <input
               id="prompt"
@@ -169,16 +159,24 @@ function App() {
         </form>
 
         {/* --- RESULT AREA --- */}
-        {result && (
+        {(loading || result) && ( // Show this section if loading or if there's a result
           <div className="bg-gray-800 p-6 rounded-xl shadow-lg mt-8">
             <h2 className="text-2xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
               Analysis
             </h2>
-            {/* This `prose` class from Tailwind formats HTML tags nicely */}
-            <div
-              className="prose prose-invert text-gray-300"
-              dangerouslySetInnerHTML={{ __html: result.replace(/\n/g, '<br />') }}
-            />
+            {loading ? (
+              <div className="flex justify-center items-center h-24">
+                <div className="w-8 h-8 border-4 border-t-transparent border-purple-400 rounded-full animate-spin"></div>
+                <p className="ml-3 text-gray-400">AI is thinking...</p>
+              </div>
+            ) : (
+              // This `prose` class from Tailwind formats HTML tags nicely
+              // We replace \n with <br /> for line breaks
+              <div
+                className="prose prose-invert text-gray-300 max-w-none"
+                dangerouslySetInnerHTML={{ __html: result.replace(/\n/g, '<br />') }}
+              />
+            )}
           </div>
         )}
       </div>
