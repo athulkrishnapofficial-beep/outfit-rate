@@ -120,7 +120,7 @@ function App() {
           <input
             id="file-input"
             type="file"
-            accept="image/png, image/jpeg"
+            accept="image/png, image/jpeg, image/webp, image/heic, image/heif"
             className="hidden"
             onChange={handleImageChange}
           />
