@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import ReactMarkdown from 'react-markdown'; // <-- ADD THIS LINE
 
 function App() {
   const [prompt, setPrompt] = useState(''); // The user's text question
@@ -172,10 +173,11 @@ function App() {
             ) : (
               // This `prose` class from Tailwind formats HTML tags nicely
               // We replace \n with <br /> for line breaks
-              <div
-                className="prose prose-invert text-gray-300 max-w-none"
-                dangerouslySetInnerHTML={{ __html: result.replace(/\n/g, '<br />') }}
-              />
+              <ReactMarkdown
+              className="prose prose-invert text-gray-300 max-w-none"
+            >
+              {result}
+            </ReactMarkdown>
             )}
           </div>
         )}
