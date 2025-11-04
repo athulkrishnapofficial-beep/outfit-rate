@@ -20,19 +20,78 @@ function fileToGenerativePart(base64Data, mimeType) {
   };
 }
 
+// Constants for validation
+const MAX_IMAGE_SIZE = 4 * 1024 * 1024; // 4MB
+const MAX_PROMPT_LENGTH = 1000;
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+// Helper function to validate base64 image
+function validateImage(base64String) {
+  try {
+    // Check if it's a valid base64 string with MIME type
+    const [header, content] = base64String.split(',');
+    if (!header || !content) {
+      return { isValid: false, error: 'Invalid image format' };
+    }
+
+    // Check MIME type
+    const mime = header.split(':')[1].split(';')[0];
+    if (!ALLOWED_MIME_TYPES.includes(mime)) {
+      return { isValid: false, error: 'Invalid image type. Only JPEG, PNG and WebP are allowed.' };
+    }
+
+    // Check size
+    const sizeInBytes = Buffer.from(content, 'base64').length;
+    if (sizeInBytes > MAX_IMAGE_SIZE) {
+      return { isValid: false, error: 'Image too large. Maximum size is 4MB.' };
+    }
+
+    return { isValid: true, mime };
+  } catch (error) {
+    return { isValid: false, error: 'Invalid image data' };
+  }
+}
+
 // 3. This is the main serverless function
 export default async function handler(request, response) {
+  // Set CORS headers
+  response.setHeader('Access-Control-Allow-Origin', '*');
+  response.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Handle OPTIONS request for CORS
+  if (request.method === 'OPTIONS') {
+    return response.status(200).end();
+  }
+
   // Only allow POST requests
   if (request.method !== 'POST') {
     return response.status(405).json({ error: 'Method Not Allowed' });
   }
 
   try {
+    // Check request size
+    const contentLength = parseInt(request.headers['content-length'] || '0');
+    if (contentLength > MAX_IMAGE_SIZE + 1000) { // Adding 1000 bytes for prompt and other data
+      return response.status(413).json({ error: 'Request too large' });
+    }
+
     // 4. Get the image and prompt from the frontend
     const { image: imageBase64, prompt } = request.body;
 
     if (!imageBase64 || !prompt) {
       return response.status(400).json({ error: 'Missing image or prompt' });
+    }
+
+    // Validate prompt length
+    if (prompt.length > MAX_PROMPT_LENGTH) {
+      return response.status(400).json({ error: `Prompt too long. Maximum length is ${MAX_PROMPT_LENGTH} characters.` });
+    }
+
+    // Validate image
+    const imageValidation = validateImage(imageBase64);
+    if (!imageValidation.isValid) {
+      return response.status(400).json({ error: imageValidation.error });
     }
 
     // 5. Tell the AI how to act (This is the system prompt)
@@ -132,6 +191,24 @@ Always encourage the user and celebrate their effort. The goal is to help them i
 
   } catch (error) {
     console.error("AI Error:", error);
-    return response.status(500).json({ error: 'Failed to get analysis from AI.' });
+    
+    // Provide more specific error messages based on the error type
+    let errorMessage = 'Failed to get analysis from AI.';
+    let statusCode = 500;
+
+    if (error.message?.includes('API key')) {
+      errorMessage = 'API configuration error';
+    } else if (error.message?.includes('rate limit')) {
+      errorMessage = 'Service is temporarily busy. Please try again later.';
+      statusCode = 429;
+    } else if (error.message?.includes('timeout')) {
+      errorMessage = 'Request timed out. Please try again.';
+      statusCode = 504;
+    }
+
+    return response.status(statusCode).json({ 
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 }
