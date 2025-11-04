@@ -32,8 +32,8 @@ function App() {
   const toBase64 = (file) => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
-    // Remove the data prefix "data:image/jpeg;base64," to get just the base64 part
-    reader.onload = () => resolve(reader.result.split(',')[1]); 
+    // Keep the full data URL including MIME type
+    reader.onload = () => resolve(reader.result);
     reader.onerror = (error) => reject(error);
   });
 

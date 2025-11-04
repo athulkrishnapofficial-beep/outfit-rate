@@ -29,26 +29,46 @@ const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 function validateImage(base64String) {
   try {
     // Check if it's a valid base64 string with MIME type
-    const [header, content] = base64String.split(',');
-    if (!header || !content) {
-      return { isValid: false, error: 'Invalid image format' };
+    if (!base64String.startsWith('data:')) {
+      return { isValid: false, error: 'Invalid image format: Missing data URL prefix' };
     }
 
-    // Check MIME type
-    const mime = header.split(':')[1].split(';')[0];
+    const [header, content] = base64String.split(',');
+    if (!header || !content) {
+      return { isValid: false, error: 'Invalid image format: Malformed data URL' };
+    }
+
+    // Extract MIME type from the header
+    const mimeMatch = header.match(/^data:(image\/[^;]+);base64$/);
+    if (!mimeMatch) {
+      return { isValid: false, error: 'Invalid image format: Invalid MIME type format' };
+    }
+
+    const mime = mimeMatch[1];
     if (!ALLOWED_MIME_TYPES.includes(mime)) {
-      return { isValid: false, error: 'Invalid image type. Only JPEG, PNG and WebP are allowed.' };
+      return { 
+        isValid: false, 
+        error: `Invalid image type. Only ${ALLOWED_MIME_TYPES.join(', ')} are allowed.` 
+      };
     }
 
     // Check size
     const sizeInBytes = Buffer.from(content, 'base64').length;
     if (sizeInBytes > MAX_IMAGE_SIZE) {
-      return { isValid: false, error: 'Image too large. Maximum size is 4MB.' };
+      const sizeMB = (MAX_IMAGE_SIZE / (1024 * 1024)).toFixed(1);
+      return { 
+        isValid: false, 
+        error: `Image too large. Maximum size is ${sizeMB}MB.` 
+      };
     }
 
     return { isValid: true, mime };
   } catch (error) {
-    return { isValid: false, error: 'Invalid image data' };
+    console.error('Image validation error:', error);
+    return { 
+      isValid: false, 
+      error: 'Invalid image data: Could not process the image' 
+    };
   }
 }
 
