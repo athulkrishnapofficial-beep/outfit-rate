@@ -102,7 +102,7 @@ export default async function handler(request, response) {
     // 4. Get the image and prompt from the frontend
     const { image: imageBase64, prompt } = request.body;
 
-F    if (!imageBase64 || !prompt) {
+    if (!imageBase64 || !prompt) {
       return response.status(400).json({ error: 'Missing image or prompt' });
     }
 
